@@ -3,10 +3,26 @@ const Table = require("@saltcorn/data/models/table");
 const File = require("@saltcorn/data/models/file");
 const { ImapFlow } = require("imapflow");
 
+const objMap = (obj, f) => {
+  const result = {};
+  Object.keys(obj).forEach((k) => {
+    result[k] = f(obj[k]);
+  });
+  return result;
+};
+
 module.exports = (cfg) => ({
-  /*configFields: async ({ table }) => {
+  configFields: async () => {
     const tables = await Table.find();
-    const file_fields = table.fields.find((f) => f.type === "File");
+    const tableMap = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+    const intFields = objMap(tableMap, (table) =>
+      table.fields.filter((f) => f.type?.name === "Integer").map((f) => f.name)
+    );
+    const strFields = objMap(tableMap, (table) =>
+      table.fields.filter((f) => f.type?.name === "String").map((f) => f.name)
+    );
+    console.log("intFields", intFields);
     return [
       {
         name: "table_dest",
@@ -17,16 +33,34 @@ module.exports = (cfg) => ({
         options: tables.map((t) => t.name),
       },
       {
-        name: "file_field",
-        label: "File field",
+        name: "uid_field",
+        label: "UID field",
         type: "String",
         required: true,
         attributes: {
-          options: file_fields.map((f) => f.name),
+          calcOptions: ["table_dest", intFields],
+        },
+      },
+      {
+        name: "subj_field",
+        label: "Subject field",
+        type: "String",
+        required: true,
+        attributes: {
+          calcOptions: ["table_dest", strFields],
+        },
+      },
+      {
+        name: "from_field",
+        label: "From field",
+        type: "String",
+        required: true,
+        attributes: {
+          calcOptions: ["table_dest", strFields],
         },
       },
     ];
-  },*/
+  },
   /**
    * @param {object} opts
    * @param {object} opts.row
@@ -56,9 +90,11 @@ module.exports = (cfg) => ({
       let message = await client.fetchOne(client.mailbox.exists, {
         envelope: true,
         bodyStructure: true,
+        uid: true,
         //bodyParts: ["2"],
       });
       console.log("envelope", message.envelope);
+      console.log("uid", message.uid);
       console.log("bodyStructure", message.bodyStructure);
       console.log("bodyParts", message.bodyParts);
 
