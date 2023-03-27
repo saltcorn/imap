@@ -110,60 +110,67 @@ module.exports = (cfg) => ({
     let lock = await client.getMailboxLock("INBOX");
 
     //get max uid in db
-    const max_uid = await get_max_uid(table_dest, uid_field);
+    const max_uid = 60659; //await get_max_uid(table_dest, uid_field);
     try {
       const hasAttachment = [];
       let i = 0;
-      for await (let message of client.fetch(`${max_uid || 0}:*`, {
-        envelope: true,
-        bodyStructure: true,
-        uid: true,
-      })) {
-        console.log(`${message.uid}: ${message.envelope.subject}`);
-        await table.insertRow(
-          {
-            [uid_field]: message.uid,
-            [subj_field]: message.envelope.subject,
-            [from_field]: message.envelope.from[0].address,
-          },
-          req.user
-        );
+      for await (let message of client.fetch(
+        client.mailbox.exists,
+        //{ uid: `${max_uid || 1}:*` },
+        {
+          envelope: true,
+          bodyStructure: true,
+          uid: true,
+        }
+      )) {
+        console.log(`----${message.uid}: ${message.envelope.subject}`);
+        console.log(message);
+        console.log(message.bodyStructure.childNodes);
+        const id = await table.insertRow({
+          [uid_field]: message.uid,
+          [subj_field]: message.envelope.subject,
+          [from_field]: message.envelope.from[0].address,
+        });
         const childNodes = (message.bodyStructure.childNodes || []).filter(
           (cn) => cn.disposition === "attachment"
         );
         if (childNodes.length) {
           hasAttachment.push({
             uid: message.uid,
+            seq: message.seq,
+            id,
             part: childNodes[0].part,
+            type: childNodes[0].type,
+            name:
+              childNodes[0].dispositionParameters.filename ||
+              childNodes[0].parameters.name,
           });
         }
         i++;
         if (i > 10) break;
       }
-      for (const { uid, part } of hasAttachment) {
-        let message = await client.fetchOne(
-          { uid },
-          {
+      console.log("hasAttachment", hasAttachment);
+      if (file_field)
+        for (const { uid, part, name, type, id, seq } of hasAttachment) {
+          let message = await client.fetchOne(`${seq}`, {
             bodyParts: [part],
-          }
-        );
-        const buf = message.bodyParts.get(part);
-      }
-      // fetch latest message source
-      // client.mailbox includes information about currently selected mailbox
-      // "exists" value is also the largest sequence number available in the mailbox
-      console.log("exists", 60659); //client.mailbox.exists);
-
-      console.log("envelope", message.envelope);
-      console.log("uid", message.uid);
-      console.log("bodyStructure", message.bodyStructure);
-      console.log("bodyParts", message.bodyParts);
-
-      // list subjects for all messages
-      // uid value is always included in FETCH response, envelope strings are in unicode.
-      //for await (let message of client.fetch("1:*", { envelope: true })) {
-      //  console.log(`${message.uid}: ${message.envelope.subject}`);
-      //}
+          });
+          console.log("message", uid, message);
+          const buf0 = message.bodyParts.get(part);
+          const buf = Buffer.from(buf0, "base64").toString("ascii");
+          console.log({ buf0, buf });
+          const file = await File.from_contents(
+            name,
+            type,
+            buf,
+            req.user?.id || 1,
+            1
+          );
+          console.log("file", file);
+          await table.updateRow({ [file_field]: file.location }, id);
+        }
+    } catch (e) {
+      console.error("error", e);
     } finally {
       // Make sure lock is released, otherwise next `getMailboxLock()` never returns
       lock.release();
