@@ -2,7 +2,7 @@ const db = require("@saltcorn/data/db");
 const Table = require("@saltcorn/data/models/table");
 const File = require("@saltcorn/data/models/file");
 const { ImapFlow } = require("imapflow");
-
+const QuotedPrintable = require("@vlasky/quoted-printable");
 const objMap = (obj, f) => {
   const result = {};
   Object.keys(obj).forEach((k) => {
@@ -123,9 +123,6 @@ module.exports = (cfg) => ({
           uid: true,
         }
       )) {
-        console.log(`----${message.uid}: ${message.envelope.subject}`);
-        console.log(message);
-        console.log(message.bodyStructure.childNodes);
         const id = await table.insertRow({
           [uid_field]: message.uid,
           [subj_field]: message.envelope.subject,
@@ -149,24 +146,23 @@ module.exports = (cfg) => ({
         i++;
         if (i > 10) break;
       }
-      console.log("hasAttachment", hasAttachment);
       if (file_field)
         for (const { uid, part, name, type, id, seq } of hasAttachment) {
           let message = await client.fetchOne(`${seq}`, {
             bodyParts: [part],
           });
-          console.log("message", uid, message);
           const buf0 = message.bodyParts.get(part);
-          const buf = Buffer.from(buf0, "base64").toString("ascii");
-          console.log({ buf0, buf });
+          const buf2 = Buffer.from(buf0.toString("utf8"), "base64").toString(
+            "utf8"
+          );
+
           const file = await File.from_contents(
             name,
             type,
-            buf,
+            buf2,
             req.user?.id || 1,
             1
           );
-          console.log("file", file);
           await table.updateRow({ [file_field]: file.location }, id);
         }
     } catch (e) {
