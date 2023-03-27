@@ -4,7 +4,7 @@ const File = require("@saltcorn/data/models/file");
 const { ImapFlow } = require("imapflow");
 
 module.exports = (cfg) => ({
-  configFields: async ({ table }) => {
+  /*configFields: async ({ table }) => {
     const tables = await Table.find();
     const file_fields = table.fields.find((f) => f.type === "File");
     return [
@@ -26,7 +26,7 @@ module.exports = (cfg) => ({
         },
       },
     ];
-  },
+  },*/
   /**
    * @param {object} opts
    * @param {object} opts.row
@@ -52,16 +52,21 @@ module.exports = (cfg) => ({
       // fetch latest message source
       // client.mailbox includes information about currently selected mailbox
       // "exists" value is also the largest sequence number available in the mailbox
+      console.log("exists", 60659); //client.mailbox.exists);
       let message = await client.fetchOne(client.mailbox.exists, {
-        source: true,
+        envelope: true,
+        bodyStructure: true,
+        bodyParts: ["2"],
       });
-      console.log(message.source.toString());
+      console.log("subject", message.envelope?.subject);
+      console.log("bodyStructure", message.bodyStructure);
+      console.log("bodyParts", message.bodyParts);
 
       // list subjects for all messages
       // uid value is always included in FETCH response, envelope strings are in unicode.
-      for await (let message of client.fetch("1:*", { envelope: true })) {
-        console.log(`${message.uid}: ${message.envelope.subject}`);
-      }
+      //for await (let message of client.fetch("1:*", { envelope: true })) {
+      //  console.log(`${message.uid}: ${message.envelope.subject}`);
+      //}
     } finally {
       // Make sure lock is released, otherwise next `getMailboxLock()` never returns
       lock.release();
