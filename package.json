@@ -1,0 +1,29 @@
+{
+  "name": "@saltcorn/imap",
+  "version": "0.1.0",
+  "description": "Sync IMAP folders to tables for inbound email processing",
+  "main": "index.js",
+  "dependencies": {
+    "@saltcorn/markup": "^0.8.0",
+    "@saltcorn/data": "^0.8.0",
+    "imapflow": "1.0.123"
+  },
+  "author": "Tom Nielsen",
+  "license": "MIT",
+  "eslintConfig": {
+    "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": 2020
+    },
+    "env": {
+      "node": true,
+      "es6": true
+    },
+    "rules": {
+      "no-unused-vars": "off",
+      "no-case-declarations": "off",
+      "no-empty": "warn",
+      "no-fallthrough": "warn"
+    }
+  }
+}
