@@ -110,13 +110,13 @@ module.exports = (cfg) => ({
     let lock = await client.getMailboxLock("INBOX");
 
     //get max uid in db
-    const max_uid = 60659; //await get_max_uid(table_dest, uid_field);
+    const max_uid = await get_max_uid(table_dest, uid_field);
     try {
       const hasAttachment = [];
       let i = 0;
       for await (let message of client.fetch(
-        client.mailbox.exists,
-        //{ uid: `${max_uid || 1}:*` },
+        //client.mailbox.exists,
+        { uid: `${(max_uid || 0) + 1}:*` },
         {
           envelope: true,
           bodyStructure: true,
