@@ -56,9 +56,9 @@ module.exports = (cfg) => ({
       let message = await client.fetchOne(client.mailbox.exists, {
         envelope: true,
         bodyStructure: true,
-        bodyParts: ["2"],
+        //bodyParts: ["2"],
       });
-      console.log("subject", message.envelope?.subject);
+      console.log("envelope", message.envelope);
       console.log("bodyStructure", message.bodyStructure);
       console.log("bodyParts", message.bodyParts);
 
