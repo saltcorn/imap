@@ -39,7 +39,6 @@ module.exports = (cfg) => ({
     const fileFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type === "File").map((f) => f.name)
     );
-    console.log("intFields", intFields);
     return [
       {
         name: "table_dest",
@@ -161,6 +160,7 @@ module.exports = (cfg) => ({
       }
       if (file_field)
         for (const { uid, part, name, type, id, seq } of hasAttachment) {
+          console.log(`--Fetching attachment for ${seq}: ${name}`);
           let message = await client.fetchOne(`${seq}`, {
             bodyParts: [part],
           });
@@ -168,6 +168,7 @@ module.exports = (cfg) => ({
           const buf2 = Buffer.from(buf0.toString("utf8"), "base64").toString(
             "utf8"
           );
+          console.log(`--got attachment for ${seq}`);
 
           const file = await File.from_contents(
             name,
