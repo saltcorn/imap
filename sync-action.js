@@ -33,6 +33,9 @@ module.exports = (cfg) => ({
     const strFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type?.name === "String").map((f) => f.name)
     );
+    const dateFields = objMap(tableMap, (table) =>
+      table.fields.filter((f) => f.type?.name === "Date").map((f) => f.name)
+    );
     const fileFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type === "File").map((f) => f.name)
     );
@@ -59,7 +62,6 @@ module.exports = (cfg) => ({
         name: "subj_field",
         label: "Subject field",
         type: "String",
-        required: true,
         attributes: {
           calcOptions: ["table_dest", strFields],
         },
@@ -68,11 +70,19 @@ module.exports = (cfg) => ({
         name: "from_field",
         label: "From field",
         type: "String",
-        required: true,
         attributes: {
           calcOptions: ["table_dest", strFields],
         },
       },
+      {
+        name: "date_field",
+        label: "Date field",
+        type: "String",
+        attributes: {
+          calcOptions: ["table_dest", strFields],
+        },
+      },
+
       {
         name: "file_field",
         label: "File field",
@@ -90,6 +100,7 @@ module.exports = (cfg) => ({
       table_dest,
       uid_field,
       file_field,
+      date_field,
       subj_field,
       from_field,
     },
@@ -123,11 +134,13 @@ module.exports = (cfg) => ({
           uid: true,
         }
       )) {
-        const id = await table.insertRow({
+        const newMsg = {
           [uid_field]: message.uid,
-          [subj_field]: message.envelope.subject,
-          [from_field]: message.envelope.from[0].address,
-        });
+        };
+        if (subj_field) newMsg[subj_field] = message.envelope.subject;
+        if (from_field) newMsg[from_field] = message.envelope.from[0].address;
+        if (date_field) newMsg[date_field] = message.envelope.date;
+        const id = await table.insertRow(newMsg);
         const childNodes = (message.bodyStructure.childNodes || []).filter(
           (cn) => cn.disposition === "attachment"
         );
@@ -166,13 +179,17 @@ module.exports = (cfg) => ({
           await table.updateRow({ [file_field]: file.location }, id);
         }
     } catch (e) {
-      console.error("error", e);
+      console.error("imap sync error", e);
     } finally {
       // Make sure lock is released, otherwise next `getMailboxLock()` never returns
       lock.release();
     }
 
     // log out and close connection
-    await client.logout();
+    try {
+      await client.logout();
+    } catch (e) {
+      console.error("imap logout error", e);
+    }
   },
 });
