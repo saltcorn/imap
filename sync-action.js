@@ -78,7 +78,7 @@ module.exports = (cfg) => ({
         label: "Date field",
         type: "String",
         attributes: {
-          calcOptions: ["table_dest", strFields],
+          calcOptions: ["table_dest", dateFields],
         },
       },
 
@@ -89,6 +89,12 @@ module.exports = (cfg) => ({
         attributes: {
           calcOptions: ["table_dest", fileFields],
         },
+      },
+      {
+        name: "mailbox_name",
+        label: "Mailbox name",
+        type: "String",
+        default: "INBOX",
       },
     ];
   },
@@ -102,6 +108,7 @@ module.exports = (cfg) => ({
       date_field,
       subj_field,
       from_field,
+      mailbox_name,
     },
     req,
   }) => {
@@ -117,7 +124,7 @@ module.exports = (cfg) => ({
     await client.connect();
     const table = await Table.findOne({ name: table_dest });
     // Select and lock a mailbox. Throws if mailbox does not exist
-    let lock = await client.getMailboxLock("INBOX");
+    let lock = await client.getMailboxLock(mailbox_name || "INBOX");
 
     //get max uid in db
     const max_uid = await get_max_uid(table_dest, uid_field);
