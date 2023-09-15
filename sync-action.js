@@ -33,6 +33,9 @@ module.exports = (cfg) => ({
     const strFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type?.name === "String").map((f) => f.name)
     );
+    const htmlFields = objMap(tableMap, (table) =>
+      table.fields.filter((f) => f.type?.name === "HTML").map((f) => f.name)
+    );
     const dateFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type?.name === "Date").map((f) => f.name)
     );
@@ -79,6 +82,22 @@ module.exports = (cfg) => ({
         type: "String",
         attributes: {
           calcOptions: ["table_dest", dateFields],
+        },
+      },
+      {
+        name: "plain_body_field",
+        label: "Text body field",
+        type: "String",
+        attributes: {
+          calcOptions: ["table_dest", strFields],
+        },
+      },
+      {
+        name: "html_body_field",
+        label: "HTML body field",
+        type: "String",
+        attributes: {
+          calcOptions: ["table_dest", htmlFields],
         },
       },
 
@@ -143,6 +162,9 @@ module.exports = (cfg) => ({
         const newMsg = {
           [uid_field]: message.uid,
         };
+        /*console.log("msg", message);
+        console.log("childns", message.bodyStructure.childNodes);
+        console.log("c0cs", message.bodyStructure.childNodes[0].childNodes);*/
         if (subj_field) newMsg[subj_field] = message.envelope.subject;
         if (from_field) newMsg[from_field] = message.envelope.from[0].address;
         if (date_field) newMsg[date_field] = message.envelope.date;
