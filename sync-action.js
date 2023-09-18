@@ -166,12 +166,14 @@ module.exports = (cfg) => ({
           uid: true,
         }
       )) {
-        newMessages.push(message);
-        i++;
+        if (message.uid > max_uid) {
+          newMessages.push(message);
+          i++;
+        }
         if (i > (+max_msgs || 10)) break;
       }
       for (const message of newMessages) {
-        //console.log("processing", message);
+        //console.log("----\nprocessing", message);
         const newMsg = {
           [uid_field]: message.uid,
         };
