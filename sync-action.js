@@ -179,6 +179,7 @@ module.exports = (cfg) => ({
         );
 
         if (childNodes.length && file_field) {
+          console.log("attach", childNodes[0]);
           const name =
             childNodes[0].dispositionParameters.filename ||
             childNodes[0].parameters.name;
@@ -186,10 +187,13 @@ module.exports = (cfg) => ({
           fetchParts.push({
             part: childNodes[0].part,
             async on_message(buf) {
+              const buf2 = Buffer.from(buf.toString("utf8"), "base64").toString(
+                "utf8"
+              );
               const file = await File.from_contents(
                 name,
                 type,
-                buf,
+                buf2,
                 req.user?.id || 1,
                 1
               );
@@ -207,12 +211,12 @@ module.exports = (cfg) => ({
             fetchParts.push({
               part,
               async on_message(buf) {
-                newMsg[bodyCfgField] = buf;
+                newMsg[configuration[bodyCfgField]] = buf;
               },
             });
         }
         if (fetchParts.length) {
-          const bodyParts = [fetchParts.map((fp) => fp.part)];
+          const bodyParts = fetchParts.map((fp) => fp.part);
           const pmessage = await client.fetchOne(`${message.seq}`, {
             bodyParts,
           });
@@ -220,13 +224,12 @@ module.exports = (cfg) => ({
           for (const { part, on_message } of fetchParts) {
             if (pmessage.bodyParts) {
               const buf = pmessage.bodyParts.get(part);
-              const buf2 = Buffer.from(buf.toString("utf8"), "base64").toString(
-                "utf8"
-              );
-              await on_message(buf2, pmessage);
+
+              await on_message(buf, pmessage);
             }
           }
         }
+        console.log("newMsg", newMsg);
         const id = await table.insertRow(newMsg);
       }
     } catch (e) {
