@@ -115,6 +115,13 @@ module.exports = (cfg) => ({
         type: "String",
         default: "INBOX",
       },
+      {
+        name: "max_msgs",
+        label: "Sync msg limit",
+        sublabel: "Maximum number of messages to download in one trigger run",
+        type: "Integer",
+        default: 10,
+      },
     ];
   },
 
@@ -129,6 +136,7 @@ module.exports = (cfg) => ({
       mailbox_name,
       plain_body_field,
       html_body_field,
+      max_msgs,
     } = configuration;
     const client = new ImapFlow({
       host: cfg.host,
@@ -160,7 +168,7 @@ module.exports = (cfg) => ({
       )) {
         newMessages.push(message);
         i++;
-        if (i > 10) break;
+        if (i > (+max_msgs || 10)) break;
       }
       for (const message of newMessages) {
         //console.log("processing", message);
