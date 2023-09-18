@@ -197,32 +197,34 @@ module.exports = (cfg) => ({
             },
           });
         }
-        if (plain_body_field || html_body_field) {
-          for (const { type, part } of message.bodyStructure?.childNodes[0] ||
-            []) {
-            const bodyCfgField = {
-              "text/html": "html_body_field",
-              "text/plain": "plain_body_field",
-            }[type];
-            if (bodyCfgField && configuration[bodyCfgField])
-              fetchParts.push({
-                part,
-                async on_message(buf) {
-                  newMsg[bodyCfgField] = buf;
-                },
-              });
-          }
+        for (const { type, part } of message.bodyStructure?.childNodes[0]
+          ?.childNodes || []) {
+          const bodyCfgField = {
+            "text/html": "html_body_field",
+            "text/plain": "plain_body_field",
+          }[type];
+          if (bodyCfgField && configuration[bodyCfgField])
+            fetchParts.push({
+              part,
+              async on_message(buf) {
+                newMsg[bodyCfgField] = buf;
+              },
+            });
         }
         if (fetchParts.length) {
-          let message = await client.fetchOne(`${message.seq}`, {
-            bodyParts: [fetchParts.map((fp) => fp.part)],
+          const bodyParts = [fetchParts.map((fp) => fp.part)];
+          const pmessage = await client.fetchOne(`${message.seq}`, {
+            bodyParts,
           });
+          console.log({ pmessage, bodyParts });
           for (const { part, on_message } of fetchParts) {
-            const buf = message.bodyParts.get(part);
-            const buf2 = Buffer.from(buf.toString("utf8"), "base64").toString(
-              "utf8"
-            );
-            await on_message(buf2, message);
+            if (pmessage.bodyParts) {
+              const buf = pmessage.bodyParts.get(part);
+              const buf2 = Buffer.from(buf.toString("utf8"), "base64").toString(
+                "utf8"
+              );
+              await on_message(buf2, pmessage);
+            }
           }
         }
         const id = await table.insertRow(newMsg);
