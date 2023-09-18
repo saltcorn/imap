@@ -118,9 +118,8 @@ module.exports = (cfg) => ({
     ];
   },
 
-  run: async ({
-    row,
-    configuration: {
+  run: async ({ row, configuration, req }) => {
+    const {
       table_dest,
       uid_field,
       file_field,
@@ -128,9 +127,9 @@ module.exports = (cfg) => ({
       subj_field,
       from_field,
       mailbox_name,
-    },
-    req,
-  }) => {
+      plain_body_field,
+      html_body_field,
+    } = configuration;
     const client = new ImapFlow({
       host: cfg.host,
       port: 993,
@@ -148,7 +147,7 @@ module.exports = (cfg) => ({
     //get max uid in db
     const max_uid = await get_max_uid(table_dest, uid_field);
     try {
-      const hasAttachment = [];
+      const newMessages = [];
       let i = 0;
       for await (let message of client.fetch(
         //client.mailbox.exists,
@@ -159,6 +158,11 @@ module.exports = (cfg) => ({
           uid: true,
         }
       )) {
+        newMessages.push(message);
+        i++;
+        if (i > 10) break;
+      }
+      for (const message of newMessages) {
         const newMsg = {
           [uid_field]: message.uid,
         };
@@ -168,46 +172,61 @@ module.exports = (cfg) => ({
         if (subj_field) newMsg[subj_field] = message.envelope.subject;
         if (from_field) newMsg[from_field] = message.envelope.from[0].address;
         if (date_field) newMsg[date_field] = message.envelope.date;
-        const id = await table.insertRow(newMsg);
+
+        const fetchParts = [];
         const childNodes = (message.bodyStructure.childNodes || []).filter(
           (cn) => cn.disposition === "attachment"
         );
-        if (childNodes.length) {
-          hasAttachment.push({
-            uid: message.uid,
-            seq: message.seq,
-            id,
-            part: childNodes[0].part,
-            type: childNodes[0].type,
-            name:
-              childNodes[0].dispositionParameters.filename ||
-              childNodes[0].parameters.name,
-          });
-        }
-        i++;
-        if (i > 10) break;
-      }
-      if (file_field)
-        for (const { uid, part, name, type, id, seq } of hasAttachment) {
-          console.log(`--Fetching attachment for ${seq}: ${name}`);
-          let message = await client.fetchOne(`${seq}`, {
-            bodyParts: [part],
-          });
-          const buf0 = message.bodyParts.get(part);
-          const buf2 = Buffer.from(buf0.toString("utf8"), "base64").toString(
-            "utf8"
-          );
-          console.log(`--got attachment for ${seq}`);
 
-          const file = await File.from_contents(
-            name,
-            type,
-            buf2,
-            req.user?.id || 1,
-            1
-          );
-          await table.updateRow({ [file_field]: file.location }, id);
+        if (childNodes.length && file_field) {
+          const name =
+            childNodes[0].dispositionParameters.filename ||
+            childNodes[0].parameters.name;
+          const type = childNodes[0].type;
+          fetchParts.push({
+            part: childNodes[0].part,
+            async on_message(buf) {
+              const file = await File.from_contents(
+                name,
+                type,
+                buf,
+                req.user?.id || 1,
+                1
+              );
+              newMsg[file_field] = file.location;
+            },
+          });
         }
+        if (plain_body_field || html_body_field) {
+          for (const { type, part } of message.bodyStructure?.childNodes[0] ||
+            []) {
+            const bodyCfgField = {
+              "text/html": "html_body_field",
+              "text/plain": "plain_body_field",
+            }[type];
+            if (bodyCfgField && configuration[bodyCfgField])
+              fetchParts.push({
+                part,
+                async on_message(buf) {
+                  newMsg[bodyCfgField] = buf;
+                },
+              });
+          }
+        }
+        if (fetchParts.length) {
+          let message = await client.fetchOne(`${message.seq}`, {
+            bodyParts: [fetchParts.map((fp) => fp.part)],
+          });
+          for (const { part, on_message } of fetchParts) {
+            const buf = message.bodyParts.get(part);
+            const buf2 = Buffer.from(buf.toString("utf8"), "base64").toString(
+              "utf8"
+            );
+            await on_message(buf2, message);
+          }
+        }
+        const id = await table.insertRow(newMsg);
+      }
     } catch (e) {
       console.error("imap sync error", e);
     } finally {
