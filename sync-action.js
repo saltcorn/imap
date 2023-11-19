@@ -189,26 +189,27 @@ module.exports = (cfg) => ({
         const iter_child_node = (childNode) => {
           if (childNode.disposition === "attachment" && file_field) {
             const name =
-              childNode.dispositionParameters.filename ||
-              childNode.parameters.name;
+              childNode.dispositionParameters?.filename ||
+              childNode.parameters?.name;
             const type = childNode.type;
-            fetchParts.push({
-              part: childNode.part,
-              async on_message(buf) {
-                const buf2 = Buffer.from(
-                  buf.toString("utf8"),
-                  "base64"
-                ).toString("utf8");
-                const file = await File.from_contents(
-                  name,
-                  type,
-                  buf2,
-                  req.user?.id || 1,
-                  1
-                );
-                newMsg[file_field] = file.location;
-              },
-            });
+            if (name && type)
+              fetchParts.push({
+                part: childNode.part,
+                async on_message(buf) {
+                  const buf2 = Buffer.from(
+                    buf.toString("utf8"),
+                    "base64"
+                  ).toString("utf8");
+                  const file = await File.from_contents(
+                    name,
+                    type,
+                    buf2,
+                    req.user?.id || 1,
+                    1
+                  );
+                  newMsg[file_field] = file.location;
+                },
+              });
           } else {
             const { type, part } = childNode;
             const bodyCfgField = {
