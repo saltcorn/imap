@@ -204,7 +204,7 @@ module.exports = (cfg) => ({
                     name,
                     type,
                     buf2,
-                    req.user?.id || 1,
+                    req?.user?.id || 1,
                     1
                   );
                   newMsg[file_field] = file.location;
