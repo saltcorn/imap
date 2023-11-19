@@ -1,6 +1,6 @@
 {
   "name": "@saltcorn/imap",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Sync IMAP folders to tables for inbound email processing",
   "main": "index.js",
   "dependencies": {
