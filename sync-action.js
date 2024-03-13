@@ -1,5 +1,6 @@
 const db = require("@saltcorn/data/db");
 const Table = require("@saltcorn/data/models/table");
+const { getFileAggregations } = require("@saltcorn/data/models/email");
 const File = require("@saltcorn/data/models/file");
 const { ImapFlow } = require("imapflow");
 const QuotedPrintable = require("@vlasky/quoted-printable");
@@ -42,6 +43,10 @@ module.exports = (cfg) => ({
     const fileFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type === "File").map((f) => f.name)
     );
+    for (const table of tables) {
+      if (table.get_relation_data)
+        fileFields[table.name].push(...(await getFileAggregations(table)));
+    }
     return [
       {
         name: "table_dest",
