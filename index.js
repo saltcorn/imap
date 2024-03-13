@@ -37,7 +37,7 @@ const configuration_workflow = () =>
                 label: "Port",
                 type: "Integer",
                 default: 993,
-                sublabel: "Standard ports are 143 with TLS and 993 without TLS",
+                sublabel: "Standard ports are 143 or 993",
               },
             ],
           });
