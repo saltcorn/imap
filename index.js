@@ -32,6 +32,13 @@ const configuration_workflow = () =>
                 label: "TLS",
                 type: "Bool",
               },
+              {
+                name: "port",
+                label: "Port",
+                type: "Integer",
+                default: 993,
+                sublabel: "Standard ports are 143 with TLS and 993 without TLS",
+              },
             ],
           });
         },

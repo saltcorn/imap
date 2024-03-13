@@ -132,7 +132,7 @@ module.exports = (cfg) => ({
     } = configuration;
     const client = new ImapFlow({
       host: cfg.host,
-      port: 993,
+      port: cfg.port || (cfg.tls ? 143 : 993),
       secure: !!cfg.tls,
       auth: {
         user: cfg.username,
