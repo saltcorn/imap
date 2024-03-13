@@ -169,6 +169,7 @@ module.exports = (cfg) => ({
         }
       }
       for (const message of newMessages) {
+        const relatedAttachments = [];
         //console.log("----\nprocessing", message);
         const newMsg = {
           [uid_field]: message.uid,
@@ -183,6 +184,7 @@ module.exports = (cfg) => ({
         const fetchParts = [];
 
         const iter_child_node = (childNode) => {
+          //console.log("childNode", childNode);
           if (childNode.disposition === "attachment" && file_field) {
             const name =
               childNode.dispositionParameters?.filename ||
@@ -203,7 +205,10 @@ module.exports = (cfg) => ({
                     req?.user?.id || 1,
                     1
                   );
-                  newMsg[file_field] = file.location;
+                  if (file_field.includes(".")) {
+                    relatedAttachments.push(file.location);
+                    // console.log({ name, type });
+                  } else newMsg[file_field] = file.location;
                 },
               });
           } else {
@@ -240,7 +245,16 @@ module.exports = (cfg) => ({
             }
           }
         }
-        await table.insertRow(newMsg);
+        const id = await table.insertRow(newMsg);
+        //console.log({ relatedAttachments });
+        if (relatedAttachments.length > 0) {
+          const [ref, target] = file_field.split("->");
+          const [tableNm, key] = ref.split(".");
+          const attachTable = Table.findOne({ name: tableNm });
+          for (const attach of relatedAttachments) {
+            await attachTable.insertRow({ [key]: id, [target]: attach });
+          }
+        }
       }
     } catch (e) {
       console.error("imap sync error", e);
