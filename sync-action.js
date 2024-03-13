@@ -202,7 +202,7 @@ module.exports = (cfg) => ({
                 },
               });
           } else {
-            const { type, part } = childNode;
+            const { type, part, encoding } = childNode;
             const bodyCfgField = {
               "text/html": "html_body_field",
               "text/plain": "plain_body_field",
@@ -211,7 +211,10 @@ module.exports = (cfg) => ({
               fetchParts.push({
                 part,
                 async on_message(buf) {
-                  newMsg[configuration[bodyCfgField]] = buf;
+                  newMsg[configuration[bodyCfgField]] =
+                    encoding === "quoted-printable"
+                      ? QuotedPrintable.decode(buf)
+                      : buf;
                 },
               });
           }
