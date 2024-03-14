@@ -125,6 +125,7 @@ module.exports = (cfg) => ({
         label: "Embed images",
         sublabel: "Embabed inline images with base64 in HTML body",
         type: "Bool",
+        default: true,
       },
     ];
   },
