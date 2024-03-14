@@ -120,6 +120,12 @@ module.exports = (cfg) => ({
         type: "String",
         default: "INBOX",
       },
+      {
+        name: "embed_base64",
+        label: "Embed images",
+        sublabel: "Embabed inline images with base64 in HTML body",
+        type: "Bool",
+      },
     ];
   },
 
@@ -132,6 +138,7 @@ module.exports = (cfg) => ({
       subj_field,
       from_field,
       mailbox_name,
+      embed_base64,
       plain_body_field,
       html_body_field,
     } = configuration;
@@ -182,6 +189,7 @@ module.exports = (cfg) => ({
         if (date_field) newMsg[date_field] = message.envelope.date;
 
         const fetchParts = [];
+        const inline_images = {};
 
         const iter_child_node = (childNode) => {
           //console.log("childNode", childNode);
@@ -211,6 +219,14 @@ module.exports = (cfg) => ({
                   } else newMsg[file_field] = file.location;
                 },
               });
+          } else if (childNode.disposition === "inline" && embed_base64) {
+            fetchParts.push({
+              part: childNode.part,
+              async on_message(buf) {
+                const id = childNode.id.replace("<", "").replace(">", "");
+                inline_images[id] = `data:${childNode.type};base64, ${buf}`;
+              },
+            });
           } else {
             const { type, part, encoding } = childNode;
             const bodyCfgField = {
@@ -245,6 +261,15 @@ module.exports = (cfg) => ({
             }
           }
         }
+        if (newMsg[html_body_field])
+          Object.entries(inline_images).forEach(([id, src]) => {
+            if (Buffer.isBuffer(newMsg[html_body_field]))
+              newMsg[html_body_field] = newMsg[html_body_field].toString();
+            newMsg[html_body_field] = newMsg[html_body_field].replace(
+              `src="cid:${id}"`,
+              `src="${src}"`
+            );
+          });
         const id = await table.insertRow(newMsg);
         //console.log({ relatedAttachments });
         if (relatedAttachments.length > 0) {
