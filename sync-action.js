@@ -2,6 +2,7 @@ const db = require("@saltcorn/data/db");
 const Table = require("@saltcorn/data/models/table");
 const { getFileAggregations } = require("@saltcorn/data/models/email");
 const File = require("@saltcorn/data/models/file");
+const User = require("@saltcorn/data/models/user");
 const { ImapFlow } = require("imapflow");
 const QuotedPrintable = require("@vlasky/quoted-printable");
 const objMap = (obj, f) => {
@@ -47,6 +48,9 @@ module.exports = (cfg) => ({
       if (table.get_relation_data)
         fileFields[table.name].push(...(await getFileAggregations(table)));
     }
+    const dirs = await File.allDirectories();
+    const roles = await User.get_roles();
+
     return [
       {
         name: "table_dest",
@@ -115,6 +119,20 @@ module.exports = (cfg) => ({
         },
       },
       {
+        name: "folder",
+        label: "Folder",
+        sublabel: "Store attachments in this folder",
+        type: "String",
+        attributes: { options: dirs.map((d) => d.path_to_serve) },
+      },
+      {
+        name: "min_role",
+        label: "Minimum role",
+        sublabel: "Role required to read saved attachments",
+        input_type: "select",
+        options: roles.map((r) => ({ value: r.id, label: r.role })),
+      },
+      {
         name: "mailbox_name",
         label: "Mailbox name",
         type: "String",
@@ -140,6 +158,8 @@ module.exports = (cfg) => ({
       from_field,
       mailbox_name,
       embed_base64,
+      folder,
+      min_role,
       plain_body_field,
       html_body_field,
     } = configuration;
@@ -212,12 +232,13 @@ module.exports = (cfg) => ({
                     type,
                     buf2,
                     req?.user?.id || 1,
-                    1
+                    min_role || 1,
+                    folder || "/"
                   );
                   if (file_field.includes(".")) {
-                    relatedAttachments.push(file.location);
+                    relatedAttachments.push(file.path_to_serve);
                     // console.log({ name, type });
-                  } else newMsg[file_field] = file.location;
+                  } else newMsg[file_field] = file.path_to_serve;
                 },
               });
           } else if (childNode.disposition === "inline" && embed_base64) {
