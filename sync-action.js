@@ -24,6 +24,18 @@ const get_max_uid = async (table_dest, uid_field) => {
   return rows[0].max;
 };
 
+//https://docs.sheetjs.com/docs/demos/net/email/
+const concat_RS = (stream) =>
+  new Promise((res, rej) => {
+    var buffers = [];
+    stream.on("data", function (data) {
+      buffers.push(data);
+    });
+    stream.on("end", function () {
+      res(Buffer.concat(buffers));
+    });
+  });
+
 module.exports = (cfg) => ({
   configFields: async () => {
     const tables = await Table.find();
@@ -222,11 +234,14 @@ module.exports = (cfg) => ({
             if (name && type)
               fetchParts.push({
                 part: childNode.part,
-                async on_message(buf) {
-                  const buf2 = Buffer.from(
-                    buf.toString("utf8"),
-                    "base64"
-                  ).toString("utf8");
+                download: true,
+                uid: message.uid,
+                async on_message(buf, noconv) {
+                  const buf2 = noconv
+                    ? buf
+                    : Buffer.from(buf.toString("utf8"), "base64").toString(
+                        "utf8"
+                      );
                   const file = await File.from_contents(
                     name,
                     type,
@@ -275,11 +290,16 @@ module.exports = (cfg) => ({
           const pmessage = await client.fetchOne(`${message.seq}`, {
             bodyParts,
           });
-          for (const { part, on_message } of fetchParts) {
-            if (pmessage.bodyParts) {
+          for (const { part, on_message, download, uid } of fetchParts) {
+            if (download && uid && pmessage.bodyParts) {
+              const { content } = await client.download(`${message.seq}`, part);
+              /* content is a stream */
+              const buf = await concat_RS(content);
+              await on_message(buf, true);
+            } else if (pmessage.bodyParts) {
               const buf = pmessage.bodyParts.get(part);
 
-              await on_message(buf, pmessage);
+              await on_message(buf);
             }
           }
         }
