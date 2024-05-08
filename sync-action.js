@@ -312,15 +312,19 @@ module.exports = (cfg) => ({
               `src="${src}"`
             );
           });
-        const id = await table.insertRow(newMsg);
-        //console.log({ relatedAttachments });
-        if (relatedAttachments.length > 0) {
-          const [ref, target] = file_field.split("->");
-          const [tableNm, key] = ref.split(".");
-          const attachTable = Table.findOne({ name: tableNm });
-          for (const attach of relatedAttachments) {
-            await attachTable.insertRow({ [key]: id, [target]: attach });
+        try {
+          const id = await table.insertRow(newMsg);
+          //console.log({ relatedAttachments });
+          if (relatedAttachments.length > 0) {
+            const [ref, target] = file_field.split("->");
+            const [tableNm, key] = ref.split(".");
+            const attachTable = Table.findOne({ name: tableNm });
+            for (const attach of relatedAttachments) {
+              await attachTable.insertRow({ [key]: id, [target]: attach });
+            }
           }
+        } catch (e) {
+          console.error("imap save error", e);
         }
       }
     } catch (e) {
