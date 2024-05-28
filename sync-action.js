@@ -208,7 +208,12 @@ module.exports = (cfg) => ({
           i++;
         }
       }
+      let msgIterCount = 0;
       for (const message of newMessages) {
+        console.log(
+          `processing message from ${message.envelope.from[0].address} dated ${message.envelope.date} (${msgIterCount}/${newMessages.length})`
+        );
+        msgIterCount += 1;
         const relatedAttachments = [];
         //console.log("----\nprocessing", message);
         const newMsg = {
