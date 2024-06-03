@@ -121,7 +121,6 @@ module.exports = (cfg) => ({
           calcOptions: ["table_dest", htmlFields],
         },
       },
-
       {
         name: "file_field",
         label: "File field",
@@ -129,6 +128,12 @@ module.exports = (cfg) => ({
         attributes: {
           calcOptions: ["table_dest", fileFields],
         },
+      },
+      {
+        name: "file_filter",
+        label: "File filter",
+        sublabel: "Regex filename must match. For example: *.csv",
+        type: "String",
       },
       {
         name: "folder",
@@ -170,6 +175,7 @@ module.exports = (cfg) => ({
       from_field,
       mailbox_name,
       embed_base64,
+      file_filter,
       folder,
       min_role,
       plain_body_field,
@@ -236,6 +242,7 @@ module.exports = (cfg) => ({
               childNode.dispositionParameters?.filename ||
               childNode.parameters?.name;
             const type = childNode.type;
+            if (file_filter && !new RegExp(file_filter).test(name)) return;
             if (name && type)
               fetchParts.push({
                 part: childNode.part,
