@@ -44,12 +44,16 @@ module.exports = (cfg) => ({
     const intFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type?.name === "Integer").map((f) => f.name)
     );
-    const strFields = objMap(tableMap, (table) =>
-      table.fields.filter((f) => f.type?.name === "String").map((f) => f.name)
-    );
-    const htmlFields = objMap(tableMap, (table) =>
-      table.fields.filter((f) => f.type?.name === "HTML").map((f) => f.name)
-    );
+    const strFields = objMap(tableMap, (table) => [
+      "",
+      ...table.fields
+        .filter((f) => f.type?.name === "String")
+        .map((f) => f.name),
+    ]);
+    const htmlFields = objMap(tableMap, (table) => [
+      "",
+      ...table.fields.filter((f) => f.type?.name === "HTML").map((f) => f.name),
+    ]);
     const dateFields = objMap(tableMap, (table) =>
       table.fields.filter((f) => f.type?.name === "Date").map((f) => f.name)
     );
