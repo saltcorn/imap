@@ -329,11 +329,14 @@ module.exports = (cfg) => ({
             }
           }
         } catch (e) {
-          console.error("imap save error", e);
+          console.error(
+            `imap save error in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
+            e
+          );
         }
       }
     } catch (e) {
-      console.error("imap sync error", e);
+      console.error(`imap sync error`, e);
     } finally {
       // Make sure lock is released, otherwise next `getMailboxLock()` never returns
       lock.release();
