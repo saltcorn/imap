@@ -349,8 +349,15 @@ module.exports = (cfg) => ({
               await attachTable.insertRow({ [key]: id, [target]: attach });
             }
           }
-          if (copy_to_mailbox)
-            await client.messageMove(`${message.seq}`, copy_to_mailbox);
+          if (copy_to_mailbox) {
+            //console.log("Attempting to move", message, "to", copy_to_mailbox);
+            const moveResult = await client.messageMove(
+              `${message.uid}`,
+              copy_to_mailbox,
+              { uid: true }
+            );
+            console.log("move result", moveResult);
+          }
         } catch (e) {
           console.error(
             `imap save error in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
