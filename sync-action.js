@@ -141,8 +141,8 @@ module.exports = (cfg) => ({
       },
       {
         name: "folder",
-        label: "Folder",
-        sublabel: "Store attachments in this folder",
+        label: "Attachment folder",
+        sublabel: "Store attachments in this file folder",
         type: "String",
         attributes: { options: dirs.map((d) => d.path_to_serve) },
       },
@@ -158,6 +158,13 @@ module.exports = (cfg) => ({
         label: "Mailbox name",
         type: "String",
         default: "INBOX",
+      },
+      {
+        name: "copy_to_mailbox",
+        label: "Copy to mailbox",
+        type: "String",
+        sublabel:
+          "Copy messages that have been processed to this mailbox on the IMAP server.",
       },
       {
         name: "embed_base64",
@@ -182,6 +189,7 @@ module.exports = (cfg) => ({
       file_filter,
       folder,
       min_role,
+      copy_to_mailbox,
       plain_body_field,
       html_body_field,
     } = configuration;
@@ -310,8 +318,10 @@ module.exports = (cfg) => ({
             if (download && uid && pmessage.bodyParts) {
               const { content } = await client.download(`${message.seq}`, part);
               /* content is a stream */
-              const buf = await concat_RS(content);
-              await on_message(buf, true);
+              if (content) {
+                const buf = await concat_RS(content);
+                await on_message(buf, true);
+              }
             } else if (pmessage.bodyParts) {
               const buf = pmessage.bodyParts.get(part);
 
@@ -339,6 +349,8 @@ module.exports = (cfg) => ({
               await attachTable.insertRow({ [key]: id, [target]: attach });
             }
           }
+          if (copy_to_mailbox)
+            await client.messageMove(`${message.seq}`, copy_to_mailbox);
         } catch (e) {
           console.error(
             `imap save error in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
