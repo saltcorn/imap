@@ -212,6 +212,7 @@ module.exports = (cfg) => ({
     try {
       const newMessages = [];
       let i = 0;
+      const uids_to_move = [];
       for await (let message of client.fetch(
         //client.mailbox.exists,
         { uid: `${(max_uid || 0) + 1}:*` },
@@ -350,13 +351,7 @@ module.exports = (cfg) => ({
             }
           }
           if (copy_to_mailbox) {
-            //console.log("Attempting to move", message, "to", copy_to_mailbox);
-            const moveResult = await client.messageMove(
-              `${message.uid}`,
-              copy_to_mailbox,
-              { uid: true }
-            );
-            console.log("move result", moveResult);
+            uids_to_move.push(message.uid);
           }
         } catch (e) {
           console.error(
@@ -365,6 +360,16 @@ module.exports = (cfg) => ({
           );
         }
       }
+      if (copy_to_mailbox)
+        for (const uid of uids_to_move) {
+          console.log("Attempting to move", uid, "to", copy_to_mailbox);
+          const moveResult = await client.messageMove(
+            `${uid}`,
+            copy_to_mailbox,
+            { uid: true }
+          );
+          console.log("move result", moveResult);
+        }
     } catch (e) {
       console.error(`imap sync error`, e);
     } finally {
