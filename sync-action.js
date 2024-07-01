@@ -5,7 +5,7 @@ const File = require("@saltcorn/data/models/file");
 const User = require("@saltcorn/data/models/user");
 const Crash = require("@saltcorn/data/models/crash");
 const Trigger = require("@saltcorn/data/models/trigger");
-
+const mailparser = require("mailparser");
 const { ImapFlow } = require("imapflow");
 const QuotedPrintable = require("@vlasky/quoted-printable");
 const objMap = (obj, f) => {
@@ -391,6 +391,26 @@ module.exports = (cfg) => ({
           stashed_text_body
         )
           newMsg[html_body_field] = stashed_text_body;
+        if (
+          !message.bodyStructure.childNodes &&
+          !newMsg[html_body_field] &&
+          !newMsg[plain_body_field]
+        ) {
+          const pmessage = await client.fetchOne(
+            `${message.uid}`,
+            {
+              source: true,
+              envelope: true,
+            },
+            { uid: true }
+          );
+          const source = pmessage.source.toString();
+          let parsed = await mailparser.simpleParser(source);
+          if (configuration.html_body_field && parsed.textAsHtml)
+            newMsg[html_body_field] = parsed.textAsHtml;
+          if (configuration.plain_body_field && parsed.text)
+            newMsg[plain_body_field] = parsed.text;
+        }
         if (newMsg[html_body_field])
           Object.entries(inline_images).forEach(([id, src]) => {
             if (Buffer.isBuffer(newMsg[html_body_field]))
