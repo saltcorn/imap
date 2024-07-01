@@ -3,6 +3,7 @@ const Table = require("@saltcorn/data/models/table");
 const { getFileAggregations } = require("@saltcorn/data/models/email");
 const File = require("@saltcorn/data/models/file");
 const User = require("@saltcorn/data/models/user");
+const Crash = require("@saltcorn/data/models/crash");
 const { ImapFlow } = require("imapflow");
 const QuotedPrintable = require("@vlasky/quoted-printable");
 const objMap = (obj, f) => {
@@ -358,6 +359,7 @@ module.exports = (cfg) => ({
             `imap save error in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
             e
           );
+          Crash.create(e, req);
         }
       }
       if (copy_to_mailbox)
@@ -372,6 +374,7 @@ module.exports = (cfg) => ({
         }
     } catch (e) {
       console.error(`imap sync error`, e);
+      Crash.create(e, req);
     } finally {
       // Make sure lock is released, otherwise next `getMailboxLock()` never returns
       lock.release();
