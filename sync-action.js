@@ -272,7 +272,7 @@ module.exports = (cfg) => ({
         const inline_images = {};
         let stashed_text_body;
         const iter_child_node = (childNode) => {
-          //console.log("childNode", childNode);
+          //console.log("--childNode", childNode);
           if (childNode.disposition === "attachment" && file_field) {
             const name =
               childNode.dispositionParameters?.filename ||
@@ -326,7 +326,11 @@ module.exports = (cfg) => ({
                   newMsg[configuration[bodyCfgField]] =
                     encoding === "quoted-printable"
                       ? QuotedPrintable.decode(buf).toString()
-                      : buf;
+                      : encoding === "base64"
+                      ? Buffer.from(buf.toString("utf8"), "base64").toString(
+                          "utf8"
+                        )
+                      : buf.toString();
                 },
               });
             else if (
@@ -340,7 +344,11 @@ module.exports = (cfg) => ({
                   stashed_text_body =
                     encoding === "quoted-printable"
                       ? QuotedPrintable.decode(buf).toString()
-                      : buf;
+                      : encoding === "base64"
+                      ? Buffer.from(buf.toString("utf8"), "base64").toString(
+                          "utf8"
+                        )
+                      : buf.toString();
                 },
               });
           }
@@ -350,12 +358,20 @@ module.exports = (cfg) => ({
 
         if (fetchParts.length) {
           const bodyParts = fetchParts.map((fp) => fp.part);
-          const pmessage = await client.fetchOne(`${message.seq}`, {
-            bodyParts,
-          });
+          const pmessage = await client.fetchOne(
+            `${message.uid}`,
+            {
+              bodyParts,
+            },
+            { uid: true }
+          );
           for (const { part, on_message, download, uid } of fetchParts) {
             if (download && uid && pmessage.bodyParts) {
-              const { content } = await client.download(`${message.seq}`, part);
+              const { content } = await client.download(
+                `${message.uid}`,
+                part,
+                { uid: true }
+              );
               /* content is a stream */
               if (content) {
                 const buf = await concat_RS(content);
@@ -388,6 +404,7 @@ module.exports = (cfg) => ({
           /*console.log("--------------------------");
           console.log("saving to db", newMsg);
           console.log("original msg", message);
+          console.log("stashed body", stashed_text_body);
           console.log("===========================");*/
           const id = await table.insertRow(newMsg);
           //console.log({ relatedAttachments });
