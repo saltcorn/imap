@@ -308,6 +308,7 @@ module.exports = (cfg) => ({
             fetchParts.push({
               part: childNode.part,
               async on_message(buf) {
+                if (!childNode?.id) return;
                 const id = childNode.id.replace("<", "").replace(">", "");
                 inline_images[id] = `data:${childNode.type};base64, ${buf}`;
               },
