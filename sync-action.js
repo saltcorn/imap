@@ -270,7 +270,7 @@ module.exports = (cfg) => ({
 
         const fetchParts = [];
         const inline_images = {};
-
+        let stashed_text_body;
         const iter_child_node = (childNode) => {
           //console.log("childNode", childNode);
           if (childNode.disposition === "attachment" && file_field) {
@@ -329,6 +329,20 @@ module.exports = (cfg) => ({
                       : buf;
                 },
               });
+            else if (
+              type === "text/plain" &&
+              !configuration.plain_body_field &&
+              configuration.html_body_field
+            )
+              fetchParts.push({
+                part,
+                async on_message(buf) {
+                  stashed_text_body =
+                    encoding === "quoted-printable"
+                      ? QuotedPrintable.decode(buf).toString()
+                      : buf;
+                },
+              });
           }
           (childNode.childNodes || []).forEach(iter_child_node);
         };
@@ -354,6 +368,13 @@ module.exports = (cfg) => ({
             }
           }
         }
+        if (
+          !configuration.plain_body_field &&
+          configuration.html_body_field &&
+          !newMsg[html_body_field] &&
+          stashed_text_body
+        )
+          newMsg[html_body_field] = stashed_text_body;
         if (newMsg[html_body_field])
           Object.entries(inline_images).forEach(([id, src]) => {
             if (Buffer.isBuffer(newMsg[html_body_field]))
@@ -364,6 +385,10 @@ module.exports = (cfg) => ({
             );
           });
         try {
+          /*console.log("--------------------------");
+          console.log("saving to db", newMsg);
+          console.log("original msg", message);
+          console.log("===========================");*/
           const id = await table.insertRow(newMsg);
           //console.log({ relatedAttachments });
           if (relatedAttachments.length > 0) {
