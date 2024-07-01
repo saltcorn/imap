@@ -324,7 +324,7 @@ module.exports = (cfg) => ({
                 async on_message(buf) {
                   newMsg[configuration[bodyCfgField]] =
                     encoding === "quoted-printable"
-                      ? QuotedPrintable.decode(buf)
+                      ? QuotedPrintable.decode(buf).toString()
                       : buf;
                 },
               });
