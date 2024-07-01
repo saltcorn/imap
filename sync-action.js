@@ -4,6 +4,8 @@ const { getFileAggregations } = require("@saltcorn/data/models/email");
 const File = require("@saltcorn/data/models/file");
 const User = require("@saltcorn/data/models/user");
 const Crash = require("@saltcorn/data/models/crash");
+const Trigger = require("@saltcorn/data/models/trigger");
+
 const { ImapFlow } = require("imapflow");
 const QuotedPrintable = require("@vlasky/quoted-printable");
 const objMap = (obj, f) => {
@@ -67,6 +69,7 @@ module.exports = (cfg) => ({
     }
     const dirs = await File.allDirectories();
     const roles = await User.get_roles();
+    const triggers = await Trigger.find({});
 
     return [
       {
@@ -175,6 +178,15 @@ module.exports = (cfg) => ({
           "Copy messages that failed processing to this mailbox on the IMAP server.",
       },
       {
+        name: "error_action",
+        label: "Error action",
+        sublabel: "Run this action when there is an error processing an email",
+        type: "String",
+        attributes: {
+          options: triggers.map((tr) => tr.name),
+        },
+      },
+      {
         name: "embed_base64",
         label: "Embed images",
         sublabel: "Embabed inline images with base64 in HTML body",
@@ -201,6 +213,7 @@ module.exports = (cfg) => ({
       plain_body_field,
       html_body_field,
       copy_error_to_mailbox,
+      error_action,
     } = configuration;
     const client = new ImapFlow({
       host: cfg.host,
@@ -368,9 +381,24 @@ module.exports = (cfg) => ({
             `imap save error in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
             e
           );
-          Crash.create(e, req);
-          if (copy_error_to_mailbox) {
-            uids_to_move_to_error.push(message.uid);
+          try {
+            Crash.create(e, req);
+            if (copy_error_to_mailbox) {
+              uids_to_move_to_error.push(message.uid);
+            }
+            if (error_action) {
+              const trigger = await Trigger.findOne({ name: error_action });
+              await trigger.runWithoutRow({
+                req,
+                user: req.user,
+                row: message,
+              });
+            }
+          } catch (e2) {
+            console.error(
+              `IMAP ERROR PROCESSING ERROR in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
+              e2
+            );
           }
         }
       }
