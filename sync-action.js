@@ -168,6 +168,13 @@ module.exports = (cfg) => ({
           "Copy messages that have been processed to this mailbox on the IMAP server.",
       },
       {
+        name: "copy_error_to_mailbox",
+        label: "Copy error mailbox",
+        type: "String",
+        sublabel:
+          "Copy messages that failed processing to this mailbox on the IMAP server.",
+      },
+      {
         name: "embed_base64",
         label: "Embed images",
         sublabel: "Embabed inline images with base64 in HTML body",
@@ -193,6 +200,7 @@ module.exports = (cfg) => ({
       copy_to_mailbox,
       plain_body_field,
       html_body_field,
+      copy_error_to_mailbox,
     } = configuration;
     const client = new ImapFlow({
       host: cfg.host,
@@ -214,6 +222,7 @@ module.exports = (cfg) => ({
       const newMessages = [];
       let i = 0;
       const uids_to_move = [];
+      const uids_to_move_to_error = [];
       for await (let message of client.fetch(
         //client.mailbox.exists,
         { uid: `${(max_uid || 0) + 1}:*` },
@@ -360,6 +369,9 @@ module.exports = (cfg) => ({
             e
           );
           Crash.create(e, req);
+          if (copy_error_to_mailbox) {
+            uids_to_move_to_error.push(message.uid);
+          }
         }
       }
       if (copy_to_mailbox)
@@ -368,6 +380,16 @@ module.exports = (cfg) => ({
           const moveResult = await client.messageMove(
             `${uid}`,
             copy_to_mailbox,
+            { uid: true }
+          );
+          console.log("move result", moveResult);
+        }
+      if (copy_error_to_mailbox)
+        for (const uid of uids_to_move_to_error) {
+          console.log("Attempting to move", uid, "to", copy_error_to_mailbox);
+          const moveResult = await client.messageMove(
+            `${uid}`,
+            copy_error_to_mailbox,
             { uid: true }
           );
           console.log("move result", moveResult);
