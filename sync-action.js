@@ -304,7 +304,11 @@ module.exports = (cfg) => ({
                   } else newMsg[file_field] = file.path_to_serve;
                 },
               });
-          } else if (childNode.disposition === "inline" && embed_base64) {
+          } else if (
+            childNode.disposition === "inline" &&
+            embed_base64 &&
+            childNode.encoding === "base64"
+          ) {
             fetchParts.push({
               part: childNode.part,
               async on_message(buf) {
