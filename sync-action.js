@@ -382,7 +382,10 @@ module.exports = (cfg) => ({
             e
           );
           try {
-            Crash.create(e, req);
+            Crash.create(e, {
+              url: `imap sync`,
+              headers: {},
+            });
             if (copy_error_to_mailbox) {
               uids_to_move_to_error.push(message.uid);
             }
@@ -390,7 +393,7 @@ module.exports = (cfg) => ({
               const trigger = await Trigger.findOne({ name: error_action });
               await trigger.runWithoutRow({
                 req,
-                user: req.user,
+                user: req?.user,
                 row: message,
               });
             }
@@ -424,7 +427,10 @@ module.exports = (cfg) => ({
         }
     } catch (e) {
       console.error(`imap sync error`, e);
-      Crash.create(e, req);
+      Crash.create(e, {
+        url: `imap sync`,
+        headers: {},
+      });
     } finally {
       // Make sure lock is released, otherwise next `getMailboxLock()` never returns
       lock.release();
