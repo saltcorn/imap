@@ -318,7 +318,12 @@ module.exports = (cfg) => ({
               },
             });
           } else {
-            const { type, part, encoding } = childNode;
+            const { type, part, encoding, parameters } = childNode;
+            let decode =
+              parameters?.charset && parameters?.charset !== "utf-8"
+                ? (s) => new TextDecoder(parameters.charset).decode(s)
+                : (s) => s.toString();
+
             const bodyCfgField = {
               "text/html": "html_body_field",
               "text/plain": "plain_body_field",
@@ -329,12 +334,12 @@ module.exports = (cfg) => ({
                 async on_message(buf) {
                   newMsg[configuration[bodyCfgField]] =
                     encoding === "quoted-printable"
-                      ? QuotedPrintable.decode(buf).toString()
+                      ? decode(QuotedPrintable.decode(buf))
                       : encoding === "base64"
                       ? Buffer.from(buf.toString("utf8"), "base64").toString(
                           "utf8"
                         )
-                      : buf.toString();
+                      : decode(buf);
                 },
               });
             else if (
@@ -347,12 +352,12 @@ module.exports = (cfg) => ({
                 async on_message(buf) {
                   stashed_text_body =
                     encoding === "quoted-printable"
-                      ? QuotedPrintable.decode(buf).toString()
+                      ? decode(QuotedPrintable.decode(buf))
                       : encoding === "base64"
                       ? Buffer.from(buf.toString("utf8"), "base64").toString(
                           "utf8"
                         )
-                      : buf.toString();
+                      : decode(buf);
                 },
               });
           }
