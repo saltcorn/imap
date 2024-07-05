@@ -8,6 +8,31 @@ const Trigger = require("@saltcorn/data/models/trigger");
 const mailparser = require("mailparser");
 const { ImapFlow } = require("imapflow");
 const QuotedPrintable = require("@vlasky/quoted-printable");
+const exec = require("child_process").exec;
+const fsp = require("fs").promises;
+const runCmd = (cmd, options) => {
+  return new Promise((resolve, reject) => {
+    const cp = exec(
+      cmd,
+      options?.cwd ? { cwd: options.cwd } : {},
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve({
+            stdout,
+            stderr,
+          });
+        }
+      }
+    );
+    if (options?.stdin) {
+      cp.stdin.write(options.stdin);
+      cp.stdin.end();
+    }
+  });
+};
+
 const objMap = (obj, f) => {
   const result = {};
   Object.keys(obj).forEach((k) => {
@@ -358,6 +383,25 @@ module.exports = (cfg) => ({
                           "utf8"
                         )
                       : decode(buf);
+                },
+              });
+            else if (
+              type === "application/ms-tnef" &&
+              configuration.html_body_field
+            )
+              fetchParts.push({
+                part,
+                async on_message(buf) {
+                  const dec =
+                    encoding == "base64"
+                      ? Buffer.from(buf.toString("utf8"), "base64")
+                      : buf;
+                  await fsp.writeFile("/tmp/tnef", dec);
+                  await runCmd("tnef --save-body --overwrite tnef", {
+                    cwd: "/tmp",
+                  });
+                  const fileBuf = await fsp.readFile("/tmp/message.html");
+                  newMsg[configuration.html_body_field] = fileBuf.toString();
                 },
               });
           }
