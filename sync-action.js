@@ -1,15 +1,21 @@
 const db = require("@saltcorn/data/db");
 const Table = require("@saltcorn/data/models/table");
-const { getFileAggregations } = require("@saltcorn/data/models/email");
+const {
+  getFileAggregations,
+  getOauth2Client,
+} = require("@saltcorn/data/models/email");
 const File = require("@saltcorn/data/models/file");
 const User = require("@saltcorn/data/models/user");
 const Crash = require("@saltcorn/data/models/crash");
 const Trigger = require("@saltcorn/data/models/trigger");
+const Plugin = require("@saltcorn/data/models/plugin");
 const mailparser = require("mailparser");
 const { ImapFlow } = require("imapflow");
 const QuotedPrintable = require("@vlasky/quoted-printable");
 const exec = require("child_process").exec;
 const fsp = require("fs").promises;
+const { getState } = require("@saltcorn/data/db/state");
+
 const runCmd = (cmd, options) => {
   return new Promise((resolve, reject) => {
     const cp = exec(
@@ -63,6 +69,40 @@ const concat_RS = (stream) =>
       res(Buffer.concat(buffers));
     });
   });
+
+const prepToken = async (cfg) => {
+  const client = getOauth2Client({
+    clientId: cfg.client_id,
+    clientSecret: cfg.client_secret,
+    tokenUrl: cfg.token_url,
+    authorizeUrl: cfg.authorize_url,
+  });
+  const state = getState();
+  const pluginCfg =
+    state.plugin_cfgs["imap"] || state.plugin_cfgs["@saltcorn/imap"];
+  let wrapped = client.createToken(pluginCfg.token);
+  if (wrapped.expired()) {
+    const refreshed = await wrapped.refresh();
+    let plugin = await Plugin.findOne({ name: "imap" });
+    if (!plugin) {
+      plugin = await Plugin.findOne({
+        name: "@saltcorn/imap",
+      });
+    }
+    const newConfig = {
+      ...(plugin.configuration || {}),
+      token: refreshed,
+    };
+    plugin.configuration = newConfig;
+    await plugin.upsert();
+    getState().processSend({
+      refresh_plugin_cfg: plugin.name,
+      tenant: db.getTenantSchema(),
+    });
+    wrapped = refreshed;
+  }
+  return wrapped;
+};
 
 module.exports = (cfg) => ({
   configFields: async () => {
@@ -240,19 +280,28 @@ module.exports = (cfg) => ({
       copy_error_to_mailbox,
       error_action,
     } = configuration;
-    const client = new ImapFlow({
+
+    const authObj = {
+      user: cfg.username,
+    };
+    if (cfg.auth_method === "oauth2") {
+      const wrapped = await prepToken(cfg);
+      authObj.accessToken = wrapped.token.access_token;
+      authObj.method = "XOAUTH2";
+    } else {
+      authObj.pass = cfg.password;
+    }
+
+    const imapClient = new ImapFlow({
       host: cfg.host,
       port: cfg.port || 993,
       secure: !!cfg.tls,
-      auth: {
-        user: cfg.username,
-        pass: cfg.password,
-      },
+      auth: authObj,
     });
-    await client.connect();
+    await imapClient.connect();
     const table = await Table.findOne({ name: table_dest });
     // Select and lock a mailbox. Throws if mailbox does not exist
-    let lock = await client.getMailboxLock(mailbox_name || "INBOX");
+    let lock = await imapClient.getMailboxLock(mailbox_name || "INBOX");
 
     //get max uid in db
     const max_uid = await get_max_uid(table_dest, uid_field);
@@ -261,7 +310,7 @@ module.exports = (cfg) => ({
       let i = 0;
       const uids_to_move = [];
       const uids_to_move_to_error = [];
-      for await (let message of client.fetch(
+      for await (let message of imapClient.fetch(
         //client.mailbox.exists,
         { uid: `${(max_uid || 0) + 1}:*` },
         {
@@ -411,7 +460,7 @@ module.exports = (cfg) => ({
 
         if (fetchParts.length) {
           const bodyParts = fetchParts.map((fp) => fp.part);
-          const pmessage = await client.fetchOne(
+          const pmessage = await imapClient.fetchOne(
             `${message.uid}`,
             {
               bodyParts,
@@ -420,7 +469,7 @@ module.exports = (cfg) => ({
           );
           for (const { part, on_message, download, uid } of fetchParts) {
             if (download && uid && pmessage.bodyParts) {
-              const { content } = await client.download(
+              const { content } = await imapClient.download(
                 `${message.uid}`,
                 part,
                 { uid: true }
@@ -449,7 +498,7 @@ module.exports = (cfg) => ({
           !newMsg[html_body_field] &&
           !newMsg[plain_body_field]
         ) {
-          const pmessage = await client.fetchOne(
+          const pmessage = await imapClient.fetchOne(
             `${message.uid}`,
             {
               source: true,
@@ -524,7 +573,7 @@ module.exports = (cfg) => ({
       if (copy_to_mailbox)
         for (const uid of uids_to_move) {
           console.log("Attempting to move", uid, "to", copy_to_mailbox);
-          const moveResult = await client.messageMove(
+          const moveResult = await imapClient.messageMove(
             `${uid}`,
             copy_to_mailbox,
             { uid: true }
@@ -534,7 +583,7 @@ module.exports = (cfg) => ({
       if (copy_error_to_mailbox)
         for (const uid of uids_to_move_to_error) {
           console.log("Attempting to move", uid, "to", copy_error_to_mailbox);
-          const moveResult = await client.messageMove(
+          const moveResult = await imapClient.messageMove(
             `${uid}`,
             copy_error_to_mailbox,
             { uid: true }
@@ -554,7 +603,7 @@ module.exports = (cfg) => ({
 
     // log out and close connection
     try {
-      await client.logout();
+      await imapClient.logout();
     } catch (e) {
       console.error("imap logout error", e);
     }
