@@ -153,6 +153,11 @@ const routes = (config) => {
       url: "/imap/authorize",
       method: "get",
       callback: async (req, res) => {
+        const role = req?.user?.role_id || 100;
+        if (role > 1) {
+          req.flash("error", req.__("Not authorized"));
+          return res.redirect("/");
+        }
         const client = getOauth2Client({
           clientId: client_id,
           clientSecret: client_secret,
@@ -171,7 +176,16 @@ const routes = (config) => {
       url: "/imap/callback",
       method: "get",
       callback: async (req, res) => {
+        const role = req?.user?.role_id || 100;
+        if (role > 1) {
+          req.flash("error", req.__("Not authorized"));
+          return res.redirect("/");
+        }
         const { code } = req.query;
+        if (!code) {
+          req.flash("error", req.__("No code provided"));
+          return res.redirect("/");
+        }
         const client = getOauth2Client({
           clientId: client_id,
           clientSecret: client_secret,
