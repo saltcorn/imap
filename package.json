@@ -6,7 +6,7 @@
   "dependencies": {
     "@saltcorn/markup": "^0.8.0",
     "@saltcorn/data": "^0.8.0",
-    "imapflow": "1.0.123",
+    "imapflow": "1.0.195",
     "mailparser": "3.7.1",
     "@vlasky/quoted-printable": "3.2.1"
   },
