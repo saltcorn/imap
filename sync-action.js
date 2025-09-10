@@ -30,7 +30,7 @@ const runCmd = (cmd, options) => {
             stderr,
           });
         }
-      }
+      },
     );
     if (options?.stdin) {
       cp.stdin.write(options.stdin);
@@ -51,8 +51,8 @@ const get_max_uid = async (table_dest, uid_field) => {
 
   const { rows } = await db.query(
     `select max(${db.sqlsanitize(uid_field)}) from ${schema}"${db.sqlsanitize(
-      table_dest
-    )}"`
+      table_dest,
+    )}"`,
   );
   //console.log({ rows });
   return rows[0].max;
@@ -110,7 +110,7 @@ module.exports = (cfg) => ({
     const tableMap = {};
     tables.forEach((t) => (tableMap[t.name] = t));
     const intFields = objMap(tableMap, (table) =>
-      table.fields.filter((f) => f.type?.name === "Integer").map((f) => f.name)
+      table.fields.filter((f) => f.type?.name === "Integer").map((f) => f.name),
     );
     const strFields = objMap(tableMap, (table) => [
       "",
@@ -123,10 +123,10 @@ module.exports = (cfg) => ({
       ...table.fields.filter((f) => f.type?.name === "HTML").map((f) => f.name),
     ]);
     const dateFields = objMap(tableMap, (table) =>
-      table.fields.filter((f) => f.type?.name === "Date").map((f) => f.name)
+      table.fields.filter((f) => f.type?.name === "Date").map((f) => f.name),
     );
     const fileFields = objMap(tableMap, (table) =>
-      table.fields.filter((f) => f.type === "File").map((f) => f.name)
+      table.fields.filter((f) => f.type === "File").map((f) => f.name),
     );
     for (const table of tables) {
       if (table.get_relation_data)
@@ -258,6 +258,12 @@ module.exports = (cfg) => ({
         type: "Bool",
         default: true,
       },
+      {
+        name: "attachment_chunk_size",
+        label: "Attachment chunk size",
+        sublabel: "Attachment download chunk size in kilobytes",
+        type: "Integer",
+      },
     ];
   },
 
@@ -279,6 +285,7 @@ module.exports = (cfg) => ({
       html_body_field,
       copy_error_to_mailbox,
       error_action,
+      attachment_chunk_size,
     } = configuration;
 
     const authObj = {
@@ -317,7 +324,7 @@ module.exports = (cfg) => ({
           envelope: true,
           bodyStructure: true,
           uid: true,
-        }
+        },
       )) {
         if (message.uid > max_uid) {
           newMessages.push(message);
@@ -327,7 +334,7 @@ module.exports = (cfg) => ({
       let msgIterCount = 0;
       for (const message of newMessages) {
         console.log(
-          `processing message from ${message.envelope.from[0].address} dated ${message.envelope.date} (${msgIterCount}/${newMessages.length})`
+          `processing message from ${message.envelope.from[0].address} dated ${message.envelope.date} (${msgIterCount}/${newMessages.length})`,
         );
         msgIterCount += 1;
         const relatedAttachments = [];
@@ -362,7 +369,7 @@ module.exports = (cfg) => ({
                   const buf2 = noconv
                     ? buf
                     : Buffer.from(buf.toString("utf8"), "base64").toString(
-                        "utf8"
+                        "utf8",
                       );
                   const file = await File.from_contents(
                     name,
@@ -370,7 +377,7 @@ module.exports = (cfg) => ({
                     buf2,
                     req?.user?.id || 1,
                     min_role || 1,
-                    folder || "/"
+                    folder || "/",
                   );
                   if (file_field.includes(".")) {
                     relatedAttachments.push(file.path_to_serve);
@@ -410,10 +417,10 @@ module.exports = (cfg) => ({
                     encoding === "quoted-printable"
                       ? decode(QuotedPrintable.decode(buf))
                       : encoding === "base64"
-                      ? Buffer.from(buf.toString("utf8"), "base64").toString(
-                          "utf8"
-                        )
-                      : decode(buf);
+                        ? Buffer.from(buf.toString("utf8"), "base64").toString(
+                            "utf8",
+                          )
+                        : decode(buf);
                 },
               });
             else if (
@@ -428,10 +435,10 @@ module.exports = (cfg) => ({
                     encoding === "quoted-printable"
                       ? decode(QuotedPrintable.decode(buf))
                       : encoding === "base64"
-                      ? Buffer.from(buf.toString("utf8"), "base64").toString(
-                          "utf8"
-                        )
-                      : decode(buf);
+                        ? Buffer.from(buf.toString("utf8"), "base64").toString(
+                            "utf8",
+                          )
+                        : decode(buf);
                 },
               });
             else if (
@@ -465,14 +472,19 @@ module.exports = (cfg) => ({
             {
               bodyParts,
             },
-            { uid: true }
+            { uid: true },
           );
           for (const { part, on_message, download, uid } of fetchParts) {
             if (download && uid && pmessage.bodyParts) {
               const { content } = await imapClient.download(
                 `${message.uid}`,
                 part,
-                { uid: true }
+                {
+                  uid: true,
+                  ...(attachment_chunk_size
+                    ? { chunkSize: attachment_chunk_size * 1024 }
+                    : {}),
+                },
               );
               /* content is a stream */
               if (content) {
@@ -504,7 +516,7 @@ module.exports = (cfg) => ({
               source: true,
               envelope: true,
             },
-            { uid: true }
+            { uid: true },
           );
           const source = pmessage.source.toString();
           let parsed = await mailparser.simpleParser(source);
@@ -519,7 +531,7 @@ module.exports = (cfg) => ({
               newMsg[html_body_field] = newMsg[html_body_field].toString();
             newMsg[html_body_field] = newMsg[html_body_field].replace(
               `src="cid:${id}"`,
-              `src="${src}"`
+              `src="${src}"`,
             );
           });
         try {
@@ -544,7 +556,7 @@ module.exports = (cfg) => ({
         } catch (e) {
           console.error(
             `imap save error in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
-            e
+            e,
           );
           try {
             Crash.create(e, {
@@ -565,7 +577,7 @@ module.exports = (cfg) => ({
           } catch (e2) {
             console.error(
               `IMAP ERROR PROCESSING ERROR in email from ${message.envelope.from[0].address} dated ${message.envelope.date}`,
-              e2
+              e2,
             );
           }
         }
@@ -576,7 +588,7 @@ module.exports = (cfg) => ({
           const moveResult = await imapClient.messageMove(
             `${uid}`,
             copy_to_mailbox,
-            { uid: true }
+            { uid: true },
           );
           console.log("move result", moveResult);
         }
@@ -586,7 +598,7 @@ module.exports = (cfg) => ({
           const moveResult = await imapClient.messageMove(
             `${uid}`,
             copy_error_to_mailbox,
-            { uid: true }
+            { uid: true },
           );
           console.log("move result", moveResult);
         }
