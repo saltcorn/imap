@@ -171,6 +171,22 @@ module.exports = (cfg) => ({
         },
       },
       {
+        name: "to_field",
+        label: "To field",
+        type: "String",
+        attributes: {
+          calcOptions: ["table_dest", strFields],
+        },
+      },
+      {
+        name: "cc_field",
+        label: "CC field",
+        type: "String",
+        attributes: {
+          calcOptions: ["table_dest", strFields],
+        },
+      },
+      {
         name: "date_field",
         label: "Date field",
         type: "String",
@@ -275,6 +291,8 @@ module.exports = (cfg) => ({
       date_field,
       subj_field,
       from_field,
+      to_field,
+      cc_field,
       mailbox_name,
       embed_base64,
       file_filter,
@@ -347,6 +365,14 @@ module.exports = (cfg) => ({
         console.log("c0cs", message.bodyStructure.childNodes[0].childNodes);*/
         if (subj_field) newMsg[subj_field] = message.envelope.subject;
         if (from_field) newMsg[from_field] = message.envelope.from[0].address;
+        if (to_field)
+          newMsg[to_field] = message.envelope.to
+            .map((t) => t.address)
+            .join(", ");
+        if (cc_field && message.envelope.cc)
+          newMsg[cc_field] = message.envelope.cc
+            .map((t) => t.address)
+            .join(", ");
         if (date_field) newMsg[date_field] = message.envelope.date;
 
         const fetchParts = [];
