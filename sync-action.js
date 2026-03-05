@@ -352,7 +352,8 @@ module.exports = (cfg) => ({
       }
       let msgIterCount = 0;
       for (const message of newMessages) {
-        console.log(
+        getState().log(
+          6,
           `processing message from ${message.envelope.from[0].address} dated ${message.envelope.date} (${msgIterCount}/${newMessages.length})`,
         );
         msgIterCount += 1;
@@ -611,23 +612,29 @@ module.exports = (cfg) => ({
       }
       if (copy_to_mailbox)
         for (const uid of uids_to_move) {
-          console.log("Attempting to move", uid, "to", copy_to_mailbox);
+          getState().log(6, "Attempting to move", uid, "to", copy_to_mailbox);
           const moveResult = await imapClient.messageMove(
             `${uid}`,
             copy_to_mailbox,
             { uid: true },
           );
-          console.log("move result", moveResult);
+          getState().log(6, "move result", moveResult);
         }
       if (copy_error_to_mailbox)
         for (const uid of uids_to_move_to_error) {
-          console.log("Attempting to move", uid, "to", copy_error_to_mailbox);
+          getState().log(
+            6,
+            "Attempting to move",
+            uid,
+            "to",
+            copy_error_to_mailbox,
+          );
           const moveResult = await imapClient.messageMove(
             `${uid}`,
             copy_error_to_mailbox,
             { uid: true },
           );
-          console.log("move result", moveResult);
+          getState().log(6, "move result", moveResult);
         }
     } catch (e) {
       console.error(`imap sync error`, e);
