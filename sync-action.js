@@ -381,6 +381,10 @@ module.exports = (cfg) => ({
         const inline_images = {};
         let stashed_text_body;
         const iter_child_node = (childNode) => {
+          // skip embedded emails completely
+          if (childNode.type === "message/rfc822") {
+            return;
+          }
           //console.log("--childNode", childNode);
           if (childNode.disposition === "attachment" && file_field) {
             const name =
