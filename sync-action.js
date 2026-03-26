@@ -381,8 +381,41 @@ module.exports = (cfg) => ({
         const inline_images = {};
         let stashed_text_body;
         const iter_child_node = (childNode) => {
-          // skip embedded emails completely
           if (childNode.type === "message/rfc822") {
+            // save message/rfc822 attachments as .eml files
+            if (childNode.disposition === "attachment" && file_field) {
+              const name =
+                childNode.dispositionParameters?.filename ||
+                childNode.parameters?.name ||
+                `email_${message.uid}_${childNode.part}.eml`;
+              const type = "message/rfc822";
+              if (!(file_filter && !new RegExp(file_filter).test(name))) {
+                fetchParts.push({
+                  part: childNode.part,
+                  download: true,
+                  uid: message.uid,
+                  async on_message(buf, noconv) {
+                    const buf2 = noconv
+                      ? buf
+                      : Buffer.from(buf.toString("utf8"), "base64").toString(
+                          "utf8",
+                        );
+                    const file = await File.from_contents(
+                      name,
+                      type,
+                      buf2,
+                      req?.user?.id || 1,
+                      min_role || 1,
+                      folder || "/",
+                    );
+                    if (file_field.includes(".")) {
+                      relatedAttachments.push(file.path_to_serve);
+                    } else newMsg[file_field] = file.path_to_serve;
+                  },
+                });
+              }
+            }
+            // don't recurse into embedded email child nodes
             return;
           }
           //console.log("--childNode", childNode);
@@ -557,6 +590,11 @@ module.exports = (cfg) => ({
           if (configuration.plain_body_field && parsed.text)
             newMsg[plain_body_field] = parsed.text;
         }
+        // Fallback: fill empty body field from the other if available
+        if (configuration.html_body_field && !newMsg[html_body_field] && newMsg[plain_body_field])
+          newMsg[html_body_field] = newMsg[plain_body_field];
+        if (configuration.plain_body_field && !newMsg[plain_body_field] && newMsg[html_body_field])
+          newMsg[plain_body_field] = newMsg[html_body_field];
         if (newMsg[html_body_field])
           Object.entries(inline_images).forEach(([id, src]) => {
             if (Buffer.isBuffer(newMsg[html_body_field]))
