@@ -414,9 +414,9 @@ module.exports = (cfg) => ({
                   },
                 });
               }
+              return;
             }
-            // don't recurse into embedded email child nodes
-            return;
+            // inline message/rfc822 (e.g. journal reports): fall through to recurse
           }
           //console.log("--childNode", childNode);
           if (childNode.disposition === "attachment" && file_field) {
