@@ -558,8 +558,7 @@ module.exports = (cfg) => ({
               }
             } else if (pmessage.bodyParts) {
               const buf = pmessage.bodyParts.get(part);
-
-              await on_message(buf);
+              if (buf) await on_message(buf);
             }
           }
         }
