@@ -105,8 +105,9 @@ const prepToken = async (cfg) => {
 };
 
 module.exports = (cfg) => ({
+  disableInBuilder: true,
   configFields: async () => {
-    const tables = await Table.find();
+    const tables = await Table.find({}, { cached: true });
     const tableMap = {};
     tables.forEach((t) => (tableMap[t.name] = t));
     const intFields = objMap(tableMap, (table) =>
