@@ -106,6 +106,7 @@ const prepToken = async (cfg) => {
 
 module.exports = (cfg) => ({
   disableInBuilder: true,
+  disableInWorkflow: true,
   configFields: async () => {
     const tables = await Table.find({}, { cached: true });
     const tableMap = {};
